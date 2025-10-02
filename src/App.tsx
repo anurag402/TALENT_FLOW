@@ -17,10 +17,19 @@ import './index.css'
 import createMjsServer from "./server/Server";
 import Layout from './components/layout';
 import { Toaster } from "react-hot-toast"
+import { useEffect,useState } from 'react'
+import LoadingScreen from './pages/LoadingScreen';
 
-createMjsServer();
+// createMjsServer();
 
 function App() {
+  const [mirageReady, setMirageReady] = useState(false);
+
+  useEffect(() => {
+    createMjsServer().then(() => setMirageReady(true));
+  }, []);
+
+if (!mirageReady) return <LoadingScreen />;
   return (
     <> 
       <Toaster position="top-right" reverseOrder={false} />
@@ -47,8 +56,8 @@ function App() {
           {/* Assessments */}
           <Route path="/assessments" element={<AssessmentsPage />} />
           <Route path="/assessments/new/:jobId" element={<AssessmentsCreatePage />} />
-          <Route path="/assessments/edit/:jobId" element={<AssessmentsCreatePage />} />
-          <Route path="/assessments/preview/:jobId" element={<AssessmentSubmitPage />}/>
+          <Route path="/assessments/edit/:jobId/:assessmentId" element={<AssessmentsCreatePage />} />
+          <Route path="/assessments/preview/:jobId/:assessmentId" element={<AssessmentSubmitPage />}/>
         </Route>
         {/* Fallback */}
         <Route path="*" element={<NotFoundPage />} />

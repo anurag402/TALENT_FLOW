@@ -12,8 +12,6 @@ import {
   Users,
   Calendar,
   Filter,
-  SortAsc,
-  SortDesc,
   X,
   TrendingUp,
   ChevronLeft,
@@ -118,6 +116,7 @@ export default function Jobs() {
       };
       const { data } = await axios.get("http://backend/jobs", { params });
       setJobs(data.jobs as JOB[]);
+      console.log("jobs set: ",jobs.length);
       setTotalPages(data.totalPages);
     } catch {
       // noop

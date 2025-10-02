@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 
 export default function AssessmentSubmit() {
-  const { jobId } = useParams<{ jobId: string }>();
+  const { jobId,assessmentId } = useParams<{ jobId: string, assessmentId: string }>();
   const [job, setJob] = useState<JOB | null>(null);
   const [assessment, setAssessment] = useState<ASSESSMENT | null>(null);
   const [responses, setResponses] = useState<Record<string, any>>({});
@@ -33,7 +33,7 @@ export default function AssessmentSubmit() {
 
   useEffect(() => {
     fetchJobAndAssessment();
-  }, [jobId]);
+  }, [assessmentIdParam, jobIdParam]);
 
   const fetchJobAndAssessment = async () => {
     setLoading(true);
@@ -46,8 +46,19 @@ export default function AssessmentSubmit() {
 
       const assessmentResponse = await fetch(`http://backend/assessments/${jobId}`);
       const assessmentData = await assessmentResponse.json();
-      if (!assessmentData.assessment) { toast.error("Assessment not found"); return; }
-      setAssessment(assessmentData.assessment);
+      console.log(assessmentData);
+      if (!assessmentData.assessments) 
+        { 
+          toast.error("Assessment not found"); 
+          return; 
+        }
+      const Data = assessmentData.assessments.find(assess => assess.id == assessmentId);
+         if (!Data) 
+        { 
+          toast.error("Assessment not found"); 
+          return; 
+        }
+      setAssessment(Data);
     } catch (error) { toast.error("Failed to load assessment"); } finally { setLoading(false); }
   };
 

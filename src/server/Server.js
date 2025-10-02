@@ -8,11 +8,13 @@ localforage.config({
 });
 console.log(Model)
 
-export default function createMjsServer(){
+export default async function createMjsServer(){
+    return new Promise((resolve) => {
     return createServer({
         models:{
             candidate: Model.extend({
-                job: belongsTo("job")
+                job: belongsTo("job"),
+                timeline: hasMany("timelineEntry")
             }),
             job: Model.extend({
                 candidates: hasMany("candidate"),
@@ -34,7 +36,7 @@ export default function createMjsServer(){
                     let status = req.queryParams.status || null;
                     let page = parseInt(req.queryParams.page, 10) || 1;
                     let pageSize = parseInt(req.queryParams.pageSize, 10) || 20;
-
+                    
                     let jobs = schema.jobs.all().models;
                     // console.log("jobs: ",jobs)
                     // search by title
@@ -113,8 +115,11 @@ export default function createMjsServer(){
                             { error: "Applicants must be a non-negative number" }
                         );
                     }
-
+                    
                     const job = schema.jobs.create(attrs);
+                    if (typeof localforage !== 'undefined') {
+                        localforage.setItem("mirage-db", this.db.dump());
+                    }
                     return { job };
                 } catch (e) {
                     return new Response(400, {}, { error: "Invalid request body" });
@@ -137,7 +142,7 @@ export default function createMjsServer(){
                             updateAttrs[key] = attrs[key];
                         }
                     }
-
+                    
                     if (Object.keys(updateAttrs).length === 0) {
                         return new Response(400, {}, { error: "No valid fields to update" });
                     }
@@ -155,6 +160,9 @@ export default function createMjsServer(){
                     }
 
                     job.update(updateAttrs);
+                    if (typeof localforage !== 'undefined') {
+                        localforage.setItem("mirage-db", this.db.dump());
+                    }
                     return { job };
                 } catch (e) {
                     return new Response(400, {}, { error: "Invalid request body" });
@@ -260,6 +268,9 @@ export default function createMjsServer(){
                     }
                     // Create candidate
                     const candidate = schema.candidates.create(attrs);
+                    if (typeof localforage !== 'undefined') {
+                        localforage.setItem("mirage-db", this.db.dump());
+                    }
                     return { candidate };
                 } catch (e) {
                     return new Response(400, {}, { error: "Invalid request body" });
@@ -289,19 +300,25 @@ export default function createMjsServer(){
                     if (updateAttrs.stage && !validStages.includes(updateAttrs.stage)) {
                         return new Response(400, {}, { error: "Invalid stage value" });
                     }
+                    console.log("reached here in candidate patch")
 
                     if (updateAttrs.stage && updateAttrs.stage !== candidate.stage) {
-                        candidate.timeline.create({
+                        schema.timelineEntries.create({
+                        candidate: candidate,                       // link relation
+                        candidateId: candidate.id,                  // useful for queries/where
                         stage: updateAttrs.stage,
-                        changedAt: new Date(),
-                        notes: attrs.notes || undefined // Optional notes from request
-                        });
+                        changedAt: new Date().toISOString(),
+                        notes: attrs.notes || null,
+                    });
                     }
 
                     candidate.update(updateAttrs);
+                    if (typeof localforage !== 'undefined') {
+                        localforage.setItem("mirage-db", this.db.dump());
+                    }
                     return { candidate };
                 } catch (e) {
-                    return new Response(400, {}, { error: "Invalid request body" });
+                    return new Response(400, {}, { error: `Invalid request body ${e}` });
                 }
             })
             //TODO: all these endpoints
@@ -330,11 +347,17 @@ export default function createMjsServer(){
                     )
                 }
             })
-            this.get("/assessments/:jobId",(schema,req)=>{
+            this.get("/assessments/:param",(schema,req)=>{
                 try {
-                    const jobId = req.params.jobId;
-                    // Return all assessments for the job (allow multiple assessments per job)
-                    const assessments = schema.assessments.where({ jobId }).models || [];
+                    const param = req.params.param;
+                    // If param matches an assessment id, return single assessment
+                    const foundAssessment = schema.assessments.find(param);
+                    if (foundAssessment) {
+                        return new Response(200, {}, { assessment: foundAssessment });
+                    }
+
+                    // Otherwise treat param as jobId and return all assessments for that job
+                    const assessments = schema.assessments.where({ jobId: param }).models || [];
                     return new Response(200, {}, { assessments });
                 } catch (e) {
                     return new Response(500, {}, { error: `Something went wrong in fetching assessments: ${e}` });
@@ -352,6 +375,9 @@ export default function createMjsServer(){
                         return new Response(400, {}, { error: "Missing or invalid 'questions' array in request body" });
                     }
                     assessment.update({ questions: attrs.questions });
+                    if (typeof localforage !== 'undefined') {
+                        localforage.setItem("mirage-db", this.db.dump());
+                    }
                     return { assessment };
                 } catch (e) {
                     return new Response(400, {}, { error: "Invalid request body" });
@@ -376,6 +402,9 @@ export default function createMjsServer(){
                         jobId: job.id,
                         questions: attrs.questions
                     });
+                    if (typeof localforage !== 'undefined') {
+                        localforage.setItem("mirage-db", this.db.dump());
+                    }
                     return { assessment };
                 } catch (e) {
                     return new Response(400, {}, { error: "Invalid request body" });
@@ -384,8 +413,16 @@ export default function createMjsServer(){
             this.post("/assessments/:jobId/submit",(schema,req)=>{
                 return {}
             })
+            this.namespace = "https://generativelanguage.googleapis.com/*"
+            this.passthrough((request) => {
+            // Custom comparator function
+            // Return true if Mirage should allow the request
+            // to pass through, or false if it should be
+            // intercepted
+            return request.url.includes("google");
+            });
         },
-        seeds(server){
+        async seeds(server){
             // Try to load from localForage first
             const seedData = async () => {
                 const existing = await localforage.getItem("mirage-db");
@@ -437,10 +474,12 @@ export default function createMjsServer(){
                 }
                 // Save to localForage
                 const dbDump = server.db.dump();
-                localforage.setItem("mirage-db", dbDump);
+                await localforage.setItem("mirage-db", dbDump);
             };
             // Mirage expects seeds to be sync, so use IIFE with async
-            seedData();
+            await seedData();
+            resolve(server)
         }
+    })
     })
 }

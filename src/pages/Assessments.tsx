@@ -49,9 +49,20 @@ export default function AssessmentsPage() {
       const assessmentsMap: Record<string, ASSESSMENT[]> = {};
       for (const job of jobsData.jobs || []) {
         try {
+          // const assessmentResponse = await fetch(`http://backend/assessments/${job.id}`);
+          // const assessmentData = await assessmentResponse.json();
+          // assessmentsMap[job.id] = Array.isArray(assessmentData.assessments) ? assessmentData.assessments : assessmentData.assessment ? [assessmentData.assessment] : [];
           const assessmentResponse = await fetch(`http://backend/assessments/${job.id}`);
           const assessmentData = await assessmentResponse.json();
-          assessmentsMap[job.id] = Array.isArray(assessmentData.assessments) ? assessmentData.assessments : assessmentData.assessment ? [assessmentData.assessment] : [];
+          console.log("assessmentData: ", assessmentData);
+          if (Array.isArray(assessmentData.assessments)) {
+            assessmentsMap[job.id] = assessmentData.assessments;
+          } else if (assessmentData.assessment) {
+            // backward compatibility if server returns single object
+            assessmentsMap[job.id] = [assessmentData.assessment];
+          } else {
+            assessmentsMap[job.id] = [];
+          }
         } catch (error) {
           console.error(`Error fetching assessment for job ${job.id}:`, error);
           assessmentsMap[job.id] = [];
@@ -124,20 +135,36 @@ export default function AssessmentsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            <div className="text-sm text-gray-600">
-                              {(() => {
-                                const jobAssessments = assessments[String(job.id)] || [];
-                                const totalQuestions = jobAssessments.reduce((sum, a) => sum + (a.questions?.length || 0), 0);
-                                if (jobAssessments.length === 0) return "0 questions";
-                                if (jobAssessments.length === 1) return `${totalQuestions} questions`;
-                                return `${jobAssessments.length} assessments • ${totalQuestions} questions`;
-                              })()}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button asChild variant="outline" size="sm" className="flex-1"><Link to={`/assessments/${job.id}/submit`}><Eye className="h-4 w-4 mr-2" />Preview</Link></Button>
-                              <Button asChild size="sm" className="flex-1 bg-[#3B82F6] hover:bg-[#3B82F6]/90"><Link to={`/assessments/${job.id}/edit`}><Edit className="h-4 w-4 mr-2" />Edit</Link></Button>
-                            </div>
+                          <div className="text-sm text-gray-600">
+                            {(() => {
+                              const jobAssessments = assessments[String(job.id)] || [];
+                              const totalQuestions = jobAssessments.reduce((sum, a) => sum + (a.questions?.length || 0), 0);
+                              if (jobAssessments.length === 0) return "0 questions";
+                              if (jobAssessments.length === 1) return `${totalQuestions} questions`;
+                              return `${jobAssessments.length} assessments • ${totalQuestions} questions`;
+                            })()}
                           </div>
+                          <div className="space-y-2">
+                            {(assessments[String(job.id)] || []).map((assessment) => (
+                              <Card key={assessment.id} className="bg-white/90 border border-gray-200 shadow-sm p-3">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-semibold text-gray-800">{assessment.title}</div>
+                                    <div className="text-xs text-gray-500">{assessment.questions?.length || 0} questions</div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button asChild variant="outline" size="sm">
+                                      <Link to={`/assessments/preview/${job.id}/${assessment.id}`}><Eye className="h-4 w-4 mr-1" />Preview</Link>
+                                    </Button>
+                                    <Button asChild size="sm" className="bg-[#3B82F6] hover:bg-[#3B82F6]/90">
+                                      <Link to={`/assessments/edit/${job.id}/${assessment.id}`}><Edit className="h-4 w-4 mr-1" />Edit</Link>
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </div>
                         </CardContent>
                       </Card>
                     </motion.div>

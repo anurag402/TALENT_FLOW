@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, useDebounce } from "@/lib/utils";
 import type { CANDIDATE } from "../../types";
 import CandidateKanban from "@/components/CandidateKanban";
+import toast from "react-hot-toast";
 
 const stageColors: Record<CANDIDATE["stage"], string> = {
   applied: "bg-blue-500",
@@ -99,14 +100,42 @@ export default function Candidates() {
     fetchCandidates(currentPage);
   }, [currentPage]);
 
-  const handleUpdateCandidate = (
-    candidateId: string,
-    newStage: CANDIDATE["stage"]
-  ) => {
+ const handleUpdateCandidate = async (
+  candidateId: string,
+  newStage: CANDIDATE["stage"]
+) => {
+  const oldCandidate = candidatesList.find((c) => c.id === candidateId);
+  if (!oldCandidate) return;
+
+  //Optimistic update
+  setCandidatesList((prev) =>
+    prev.map((c) => (c.id === candidateId ? { ...c, stage: newStage } : c))
+  );
+
+  try {
+    const res = await axios.patch(`http://backend/candidates/${candidateId}`, {
+      stage: newStage,
+      // notes: `Stage moved from ${oldCandidate.stage} → ${newStage}`, // optional notes
+    });
+
+    if (res.data?.candidate) {
+      setCandidatesList((prev) =>
+        prev.map((c) => (c.id === candidateId ? res.data.candidate : c))
+      );
+      toast.success(`Stage updated to ${newStage}`);
+    } else {
+      throw new Error("Invalid server response");
+    }
+  } catch (e) {
+    // Rollback 
     setCandidatesList((prev) =>
-      prev.map((c) => (c.id === candidateId ? { ...c, stage: newStage } : c))
+      prev.map((c) =>
+        c.id === candidateId ? { ...c, stage: oldCandidate.stage } : c
+      )
     );
-  };
+    toast.error("Failed to update candidate");
+  }
+};
 
   const sortedCandidates = useMemo(() => {
     return [...candidatesList].sort((a, b) => {

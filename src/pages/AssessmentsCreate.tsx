@@ -21,10 +21,14 @@ import {
   ArrowLeft,
   Save,
   Eye,
+  Bot
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import type { JOB, ASSESSMENT } from "../../types";
+import AssessmentModal from "@/components/AssessmentModal";
+import {prompt, model} from '@/utils/llm_chat'
+import { JsonOutputParser } from "@langchain/core/output_parsers";
 
 type QuestionType =
   | "single-choice"
@@ -87,12 +91,18 @@ export default function AssessmentBuilder() {
   const [saving, setSaving] = useState(false);
   const isEditMode = !!assessmentId;
   const heroRef = useRef<HTMLDivElement | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState<any>(null);
 
 useEffect(() => {
   const fetchJobAndAssessment = async () => {
     setLoading(true);
     await new Promise((res) => setTimeout(res, 500));
+    const jobResponse = await fetch(`http://backend/jobs?pageSize=100`);
+    const jobData = await jobResponse.json();
+    const foundJob = jobData.jobs?.find((j: JOB) => j.id === jobId);
     try {
+      if(!foundJob){
       const mockJob: JOB = {
         id: jobId || "job-123",
         title: "Senior Frontend Developer",
@@ -119,8 +129,8 @@ useEffect(() => {
         setJob(mockJob);
         setAssessmentTitle(mockAssessment.title);
         setQuestions(mockAssessment.questions);
-      } else {
-        setJob(mockJob);
+      }} else {
+        setJob(foundJob);
       }
     } catch (error: unknown) {
       const message =
@@ -145,6 +155,59 @@ useEffect(() => {
     }
   }, []);
 
+  const handleGenerate = async (UserPrompt: string) => {
+    try {
+      // TODO: Replace with your real AI endpoint
+      // const res = await fetch("http://backend/assessments/generate", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ prompt }),
+      // });
+
+      // if (!res.ok) {
+      //   const data = await res.json().catch(() => ({}));
+      //   throw new Error(data.error || "Failed to generate assessment");
+      // }
+
+      // const generated: Omit<Question, "id">[] = await res.json();
+      const newPrompt = await prompt.invoke({
+        text: UserPrompt
+      })
+      const parser = new JsonOutputParser<Question[]>();
+      // Sequentially call model and then parser
+      const modelResult = await model.invoke(newPrompt);
+      const generated = await parser.invoke(modelResult);
+      console.log("reached here in generate")
+      console.log("generated: ",generated);
+    // let rawContent = generated.content;
+
+
+      setQuestions((prev) => {
+        const newQs = generated.map((gq, idx) => {
+          const id = `q-${Date.now()}-${idx}`;
+          return {
+            id,
+            type: gq.type,
+            text: gq.text || "",
+            options:
+              gq.type === "single-choice" || gq.type === "multi-choice"
+                ? gq.options && gq.options.length > 0
+                  ? gq.options
+                  : ["Option 1"] // fallback like addQuestion
+                : undefined,
+            validation: gq.validation || { required: false },
+          } as Question;
+        });
+        return [...prev, ...newQs];
+      });
+
+      toast.success("AI-generated questions added!");
+    } catch (e) {
+      console.log(e)
+      toast.error(`${e.message} Failed to generate questions`);
+    }
+  };
+  
   const addQuestion = (type: QuestionType) => {
     const newQ: Question = {
       id: `q-${Date.now()}`,
@@ -203,10 +266,27 @@ useEffect(() => {
       return;
     }
     setSaving(true);
-    await new Promise((res) => setTimeout(res, 1000));
-    setSaving(false);
-    toast.success(`Assessment ${isEditMode ? "updated" : "created"}!`);
-    navigate("/assessments");
+    try {
+      const res = await fetch("http://backend/assessments/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: assessmentTitle,
+          jobId: jobId,
+          questions: questions,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save assessment");
+      }
+      toast.success(`Assessment ${isEditMode ? "updated" : "created"}!`);
+      navigate("/assessments");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save assessment");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading)
@@ -257,6 +337,20 @@ useEffect(() => {
                   </Button>
                 </motion.div>
               )}
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={() => setAiModalOpen(true)}
+                className="bg-purple-600 text-white hover:bg-purple-700 shadow-lg"
+              >
+                <Bot className="h-4 w-4 mr-2" />
+                Generate with AI
+              </Button>
+              <AssessmentModal
+                open={aiModalOpen}
+                onClose={() => setAiModalOpen(false)}
+                onGenerate={handleGenerate}
+              />
+            </motion.div>
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
