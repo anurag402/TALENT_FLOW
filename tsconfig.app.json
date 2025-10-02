@@ -35,5 +35,9 @@
     "allowJs": true
   },
   "include": ["src"],
-  "types":["node"]
+  "types":["node"],
+  "noImplicitAny": false,               // allow implicit any
+  "noUnusedLocals": false,              // don't error on unused locals
+  "useUnknownInCatchVariables": false   // catch defaults to any
+
 }
