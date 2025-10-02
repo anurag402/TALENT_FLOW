@@ -3,14 +3,14 @@ import { motion } from "framer-motion";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Mail, Phone, GripVertical } from "lucide-react";
+import { Mail, GripVertical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { CANDIDATE } from "../../types";
 
-const stageColors: Record<CANDIDATE["stage"], string> = { applied: "bg-blue-500", screen: "bg-yellow-500", tech: "bg-purple-500", offer: "bg-green-500", hired: "bg-emerald-500", rejected: "bg-red-500" };
+// const stageColors: Record<CANDIDATE["stage"], string> = { applied: "bg-blue-500", screen: "bg-yellow-500", tech: "bg-purple-500", offer: "bg-green-500", hired: "bg-emerald-500", rejected: "bg-red-500" };
 
 function SortableCandidate({ candidate }: { candidate: CANDIDATE }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: candidate.id });

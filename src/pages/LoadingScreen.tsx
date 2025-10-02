@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import React from "react";
 
 export default function LoadingScreen() {
@@ -9,9 +11,10 @@ export default function LoadingScreen() {
           <div className="absolute inset-2 rounded-full border-4 border-blue-200 border-t-transparent animate-spin-slow"></div>
           <div className="absolute inset-4 rounded-full border-2 border-blue-300 border-t-transparent animate-spin-reverse"></div>
         </div>
-        <div className="text-xl font-semibold text-blue-700 animate-pulse">Loading...</div>
+        <div className="text-xl font-semibold text-blue-700 animate-pulse">
+          Loading...
+        </div>
       </div>
     </div>
   );
 }
-

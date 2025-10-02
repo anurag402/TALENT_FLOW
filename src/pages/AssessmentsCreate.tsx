@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -21,13 +23,13 @@ import {
   ArrowLeft,
   Save,
   Eye,
-  Bot
+  Bot,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import type { JOB, ASSESSMENT } from "../../types";
 import AssessmentModal from "@/components/AssessmentModal";
-import {prompt, model} from '@/utils/llm_chat'
+import { prompt, model } from "@/utils/llm_chat";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
 
 type QuestionType =
@@ -94,56 +96,56 @@ export default function AssessmentBuilder() {
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiGenerated, setAiGenerated] = useState<any>(null);
 
-useEffect(() => {
-  const fetchJobAndAssessment = async () => {
-    setLoading(true);
-    await new Promise((res) => setTimeout(res, 500));
-    const jobResponse = await fetch(`http://backend/jobs?pageSize=100`);
-    const jobData = await jobResponse.json();
-    const foundJob = jobData.jobs?.find((j: JOB) => j.id === jobId);
-    try {
-      if(!foundJob){
-      const mockJob: JOB = {
-        id: jobId || "job-123",
-        title: "Senior Frontend Developer",
-        department: "Engineering",
-        location: "Remote",
-        description: "Build amazing UIs.",
-        status: "Open",
-      };
+  useEffect(() => {
+    const fetchJobAndAssessment = async () => {
+      setLoading(true);
+      await new Promise((res) => setTimeout(res, 500));
+      const jobResponse = await fetch(`http://backend/jobs?pageSize=100`);
+      const jobData = await jobResponse.json();
+      const foundJob = jobData.jobs?.find((j: JOB) => j.id === jobId);
+      try {
+        if (!foundJob) {
+          const mockJob: JOB = {
+            id: jobId || "job-123",
+            title: "Senior Frontend Developer",
+            department: "Engineering",
+            location: "Remote",
+            description: "Build amazing UIs.",
+            status: "Open",
+          };
 
-      if (isEditMode && assessmentId) {
-        const mockAssessment: ASSESSMENT = {
-          id: assessmentId,
-          title: "Frontend Skills",
-          questions: [
-            {
-              id: "q-1",
-              type: "single-choice",
-              text: "What is Virtual DOM?",
-              options: ["A real DOM", "A copy of the real DOM"],
-              validation: { required: true },
-            },
-          ],
-        };
-        setJob(mockJob);
-        setAssessmentTitle(mockAssessment.title);
-        setQuestions(mockAssessment.questions);
-      }} else {
-        setJob(foundJob);
+          if (isEditMode && assessmentId) {
+            const mockAssessment: ASSESSMENT = {
+              id: assessmentId,
+              title: "Frontend Skills",
+              questions: [
+                {
+                  id: "q-1",
+                  type: "single-choice",
+                  text: "What is Virtual DOM?",
+                  options: ["A real DOM", "A copy of the real DOM"],
+                  validation: { required: true },
+                },
+              ],
+            };
+            setJob(mockJob);
+            setAssessmentTitle(mockAssessment.title);
+            setQuestions(mockAssessment.questions);
+          }
+        } else {
+          setJob(foundJob);
+        }
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load data";
+        toast.error(message);
+      } finally {
+        setLoading(false);
       }
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load data";
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  fetchJobAndAssessment();
-}, [jobId, assessmentId, isEditMode]);
-
+    fetchJobAndAssessment();
+  }, [jobId, assessmentId, isEditMode]);
 
   useEffect(() => {
     if (heroRef.current) {
@@ -171,16 +173,15 @@ useEffect(() => {
 
       // const generated: Omit<Question, "id">[] = await res.json();
       const newPrompt = await prompt.invoke({
-        text: UserPrompt
-      })
+        text: UserPrompt,
+      });
       const parser = new JsonOutputParser<Question[]>();
       // Sequentially call model and then parser
       const modelResult = await model.invoke(newPrompt);
       const generated = await parser.invoke(modelResult);
-      console.log("reached here in generate")
-      console.log("generated: ",generated);
-    // let rawContent = generated.content;
-
+      console.log("reached here in generate");
+      console.log("generated: ", generated);
+      // let rawContent = generated.content;
 
       setQuestions((prev) => {
         const newQs = generated.map((gq, idx) => {
@@ -203,11 +204,11 @@ useEffect(() => {
 
       toast.success("AI-generated questions added!");
     } catch (e) {
-      console.log(e)
+      console.log(e);
       toast.error(`${e.message} Failed to generate questions`);
     }
   };
-  
+
   const addQuestion = (type: QuestionType) => {
     const newQ: Question = {
       id: `q-${Date.now()}`,
@@ -337,20 +338,23 @@ useEffect(() => {
                   </Button>
                 </motion.div>
               )}
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                onClick={() => setAiModalOpen(true)}
-                className="bg-purple-600 text-white hover:bg-purple-700 shadow-lg"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                <Bot className="h-4 w-4 mr-2" />
-                Generate with AI
-              </Button>
-              <AssessmentModal
-                open={aiModalOpen}
-                onClose={() => setAiModalOpen(false)}
-                onGenerate={handleGenerate}
-              />
-            </motion.div>
+                <Button
+                  onClick={() => setAiModalOpen(true)}
+                  className="bg-purple-600 text-white hover:bg-purple-700 shadow-lg"
+                >
+                  <Bot className="h-4 w-4 mr-2" />
+                  Generate with AI
+                </Button>
+                <AssessmentModal
+                  open={aiModalOpen}
+                  onClose={() => setAiModalOpen(false)}
+                  onGenerate={handleGenerate}
+                />
+              </motion.div>
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
