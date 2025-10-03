@@ -1,9 +1,10 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Briefcase, Users, ClipboardList, LayoutDashboard } from "lucide-react";
+import { Home, Briefcase, Users, ClipboardList, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const navigation = [
+  { name: "Home", href: "/home", icon: Home },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Candidates", href: "/candidates", icon: Users },

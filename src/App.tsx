@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
 import JobsListPage from "././pages/JobsList";
@@ -38,7 +38,8 @@ function App() {
       <Toaster position="top-right" reverseOrder={false} />
 
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<Layout />}>
           {/* Dashboard */}
