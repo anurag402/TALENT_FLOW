@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, Clock, User, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,27 @@ export default function CandidateTimelinePage() {
   const [newNote, setNewNote] = useState("");
   const [newStage, setNewStage] = useState<StageType>("applied");
 
+  // All candidates for @mention suggestions
+  const [allCandidates, setAllCandidates] = useState<CANDIDATE[]>([]);
+  // Mentions UI state
+  const [showMentionMenu, setShowMentionMenu] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
+
+  // Portal positioning
+  const [menuPos, setMenuPos] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  }>({
+    left: 0,
+    top: 0,
+    width: 0,
+  });
+
   const pageRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const mentionAnchorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (pageRef.current) {
@@ -45,8 +66,15 @@ export default function CandidateTimelinePage() {
     setLoading(true);
     try {
       const candidateResponse = await axios.get(`http://backend/candidates`);
-      const foundCandidate = candidateResponse.data.candidates?.find(
-        (c: CANDIDATE) => c.id === id
+      const list: CANDIDATE[] =
+        candidateResponse.data?.candidates ??
+        candidateResponse.data?.results ??
+        candidateResponse.data ??
+        [];
+      setAllCandidates(list);
+
+      const foundCandidate = list.find(
+        (c: CANDIDATE) => String(c.id) === String(id)
       );
       if (!foundCandidate) {
         toast.error("Candidate not found");
@@ -54,10 +82,11 @@ export default function CandidateTimelinePage() {
         return;
       }
       setCandidate(foundCandidate);
+
       const timelineResponse = await axios.get(
         `http://backend/candidates/${id}/timeline`
       );
-      setTimeline(timelineResponse.data.timeline || []);
+      setTimeline(timelineResponse.data?.timeline || []);
     } catch (error) {
       toast.error("Failed to fetch timeline data");
     } finally {
@@ -89,6 +118,7 @@ export default function CandidateTimelinePage() {
       hired: "bg-emerald-500",
       rejected: "bg-red-500",
     }[stage]);
+
   const formatDate = (date: string | Date) =>
     new Date(date).toLocaleString("en-US", {
       year: "numeric",
@@ -97,6 +127,124 @@ export default function CandidateTimelinePage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  // Filtered mention suggestions (from real candidates)
+  const filteredMentions = useMemo(() => {
+    const q = mentionQuery.trim().toLowerCase();
+    if (!q) return allCandidates.slice(0, 8);
+    return allCandidates
+      .filter(
+        (c) =>
+          c.name?.toLowerCase().includes(q) ||
+          c.email?.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [mentionQuery, allCandidates]);
+
+  // Keep the dropdown positioned under the textarea using the anchor's rect
+  useLayoutEffect(() => {
+    function updatePos() {
+      if (!mentionAnchorRef.current) return;
+      const rect = mentionAnchorRef.current.getBoundingClientRect();
+      setMenuPos({
+        left: Math.max(8, rect.left), // slight clamp from the very edge
+        top: rect.bottom + 4,
+        width: rect.width,
+      });
+    }
+    if (showMentionMenu) {
+      updatePos();
+      window.addEventListener("scroll", updatePos, true);
+      window.addEventListener("resize", updatePos);
+    }
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [showMentionMenu, newNote]);
+
+  // Insert selected mention into the textarea as @[Full Name]
+  function insertMention(target: CANDIDATE) {
+    const ta = textareaRef.current;
+    const val = newNote;
+    if (!ta) return;
+
+    const cursor = ta.selectionStart ?? val.length;
+    let i = cursor - 1;
+    while (i >= 0 && val[i] !== " " && val[i] !== "\n") i--;
+    const tokenStart = i + 1;
+
+    if (val[tokenStart] !== "@") {
+      setShowMentionMenu(false);
+      setMentionQuery("");
+      return;
+    }
+
+    const prefix = val.slice(0, tokenStart);
+    const suffix = val.slice(cursor);
+    const mentionText = `@[${target.name}]`;
+    const next = `${prefix}${mentionText} ${suffix}`;
+
+    setNewNote(next);
+    setShowMentionMenu(false);
+    setMentionQuery("");
+    setMentionIndex(0);
+
+    requestAnimationFrame(() => {
+      const pos = (prefix + mentionText + " ").length;
+      ta.setSelectionRange(pos, pos);
+      ta.focus();
+    });
+  }
+
+  // Render notes with highlighted/clickable mentions
+  function renderNotes(text: string) {
+    const parts: Array<JSX.Element | string> = [];
+    const regex = /\@\[(.+?)\]/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+      const start = match.index;
+      const end = regex.lastIndex;
+      const fullName = match[1];
+
+      if (start > lastIndex) parts.push(text.slice(lastIndex, start));
+
+      const found = allCandidates.find(
+        (c) => c.name?.toLowerCase() === fullName.toLowerCase()
+      );
+
+      if (found) {
+        parts.push(
+          <Link
+            key={`${found.id}-${start}`}
+            to={`/candidates/${found.id}`}
+            className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+          >
+            @{fullName}
+          </Link>
+        );
+      } else {
+        parts.push(
+          <span
+            key={`unknown-${start}`}
+            className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-gray-800"
+          >
+            @{fullName}
+          </span>
+        );
+      }
+
+      lastIndex = end;
+    }
+
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+
+    return <>{parts}</>;
+  }
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
   if (!candidate)
@@ -197,9 +345,9 @@ export default function CandidateTimelinePage() {
                             </span>
                           </div>
                           {entry.notes && (
-                            <p className="text-sm text-gray-700 bg-white/50 p-3 rounded-lg">
-                              {entry.notes}
-                            </p>
+                            <div className="text-sm text-gray-700 bg-white/50 p-3 rounded-lg">
+                              {renderNotes(entry.notes)}
+                            </div>
                           )}
                         </div>
                       </motion.div>
@@ -243,16 +391,100 @@ export default function CandidateTimelinePage() {
                   <option value="rejected">Rejected</option>
                 </select>
               </div>
-              <div>
+
+              {/* Notes with @mentions (suggestions from real candidates) */}
+              <div className="relative" ref={mentionAnchorRef}>
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
                   id="notes"
+                  ref={textareaRef}
                   value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Add notes..."
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewNote(val);
+
+                    const cursor = e.target.selectionStart ?? val.length;
+                    const before = val.slice(0, cursor);
+                    let j = before.length - 1;
+                    while (j >= 0 && before[j] !== " " && before[j] !== "\n")
+                      j--;
+                    const token = before.slice(j + 1);
+
+                    if (token.startsWith("@")) {
+                      const q = token.slice(1);
+                      setMentionQuery(q);
+                      setShowMentionMenu(true);
+                      setMentionIndex(0);
+                    } else {
+                      setShowMentionMenu(false);
+                      setMentionQuery("");
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (!showMentionMenu || filteredMentions.length === 0)
+                      return;
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setMentionIndex((i) => (i + 1) % filteredMentions.length);
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setMentionIndex(
+                        (i) =>
+                          (i - 1 + filteredMentions.length) %
+                          filteredMentions.length
+                      );
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      const pick = filteredMentions[mentionIndex];
+                      if (pick) insertMention(pick);
+                    } else if (e.key === "Escape") {
+                      setShowMentionMenu(false);
+                      setMentionQuery("");
+                    }
+                  }}
+                  placeholder="Add notes... Type @ to mention someone (e.g., @Aarav)"
                   rows={3}
                 />
+
+                {/* RENDER THE SAME DROPDOWN VIA A PORTAL TO AVOID CLIPPING */}
+                {showMentionMenu &&
+                  filteredMentions.length > 0 &&
+                  createPortal(
+                    <div
+                      style={{
+                        position: "fixed",
+                        left: menuPos.left,
+                        top: menuPos.top,
+                        width: menuPos.width,
+                        zIndex: 9999,
+                      }}
+                      className="mt-1 max-h-60 overflow-auto rounded-md border bg-white shadow-lg"
+                      // prevent blur on mousedown so textarea keeps focus
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {filteredMentions.map((c, i) => (
+                        <button
+                          type="button"
+                          key={c.id}
+                          className={`w-full text-left px-3 py-2 text-sm ${
+                            i === mentionIndex ? "bg-gray-100" : ""
+                          }`}
+                          onMouseEnter={() => setMentionIndex(i)}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertMention(c);
+                          }}
+                        >
+                          <div className="font-medium">{c.name}</div>
+                          <div className="text-xs text-gray-500">{c.email}</div>
+                        </button>
+                      ))}
+                    </div>,
+                    document.body
+                  )}
               </div>
+
               <Button
                 onClick={addTimelineEntry}
                 disabled={!newNote.trim()}
@@ -262,6 +494,7 @@ export default function CandidateTimelinePage() {
               </Button>
             </CardContent>
           </Card>
+
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-gray-800">

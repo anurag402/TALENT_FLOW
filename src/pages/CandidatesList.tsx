@@ -100,42 +100,45 @@ export default function Candidates() {
     fetchCandidates(currentPage);
   }, [currentPage]);
 
- const handleUpdateCandidate = async (
-  candidateId: string,
-  newStage: CANDIDATE["stage"]
-) => {
-  const oldCandidate = candidatesList.find((c) => c.id === candidateId);
-  if (!oldCandidate) return;
+  const handleUpdateCandidate = async (
+    candidateId: string,
+    newStage: CANDIDATE["stage"]
+  ) => {
+    const oldCandidate = candidatesList.find((c) => c.id === candidateId);
+    if (!oldCandidate) return;
 
-  //Optimistic update
-  setCandidatesList((prev) =>
-    prev.map((c) => (c.id === candidateId ? { ...c, stage: newStage } : c))
-  );
-
-  try {
-    const res = await axios.patch(`http://backend/candidates/${candidateId}`, {
-      stage: newStage,
-      // notes: `Stage moved from ${oldCandidate.stage} → ${newStage}`, // optional notes
-    });
-
-    if (res.data?.candidate) {
-      setCandidatesList((prev) =>
-        prev.map((c) => (c.id === candidateId ? res.data.candidate : c))
-      );
-      toast.success(`Stage updated to ${newStage}`);
-    } else {
-      throw new Error("Invalid server response");
-    }
-  } catch (e) {
-    // Rollback 
+    //Optimistic update
     setCandidatesList((prev) =>
-      prev.map((c) =>
-        c.id === candidateId ? { ...c, stage: oldCandidate.stage } : c
-      )
+      prev.map((c) => (c.id === candidateId ? { ...c, stage: newStage } : c))
     );
-    toast.error("Failed to update candidate");
-  }
-};
+
+    try {
+      const res = await axios.patch(
+        `http://backend/candidates/${candidateId}`,
+        {
+          stage: newStage,
+          // notes: `Stage moved from ${oldCandidate.stage} → ${newStage}`, // optional notes
+        }
+      );
+
+      if (res.data?.candidate) {
+        setCandidatesList((prev) =>
+          prev.map((c) => (c.id === candidateId ? res.data.candidate : c))
+        );
+        toast.success(`Stage updated to ${newStage}`);
+      } else {
+        throw new Error("Invalid server response");
+      }
+    } catch (e) {
+      // Rollback
+      setCandidatesList((prev) =>
+        prev.map((c) =>
+          c.id === candidateId ? { ...c, stage: oldCandidate.stage } : c
+        )
+      );
+      toast.error("Failed to update candidate");
+    }
+  };
 
   const sortedCandidates = useMemo(() => {
     return [...candidatesList].sort((a, b) => {
@@ -305,7 +308,11 @@ export default function Candidates() {
                     </label>
                     <Input
                       placeholder="e.g. React, Node.js"
-                      onChange={(e) => setSkillsFilter(e.target.value.split(",").map(s => s.trim()))}
+                      onChange={(e) =>
+                        setSkillsFilter(
+                          e.target.value.split(",").map((s) => s.trim())
+                        )
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
                     />
                   </div>
@@ -486,9 +493,25 @@ export default function Candidates() {
       )}
 
       <div className="flex justify-center items-center mt-8">
-        <Button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} variant="ghost" className="text-white/80"><ChevronLeft className="h-5 w-5" /></Button>
-        <span className="text-white/80 font-medium mx-4">Page {currentPage} of {totalPages}</span>
-        <Button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} variant="ghost" className="text-white/80"><ChevronRight className="h-5 w-5" /></Button>
+        <Button
+          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+          variant="ghost"
+          className="text-white/80"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <span className="text-white/80 font-medium mx-4">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          disabled={currentPage === totalPages}
+          variant="ghost"
+          className="text-white/80"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
       </div>
     </motion.div>
   );

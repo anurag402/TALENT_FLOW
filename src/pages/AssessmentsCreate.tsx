@@ -51,6 +51,10 @@ interface Question {
     min?: number;
     max?: number;
   };
+  condition?: {
+    questionId: string;
+    value: string;
+  };
 }
 
 const questionTypeLabels: Record<QuestionType, string> = {
@@ -159,29 +163,12 @@ export default function AssessmentBuilder() {
 
   const handleGenerate = async (UserPrompt: string) => {
     try {
-      // TODO: Replace with your real AI endpoint
-      // const res = await fetch("http://backend/assessments/generate", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ prompt }),
-      // });
-
-      // if (!res.ok) {
-      //   const data = await res.json().catch(() => ({}));
-      //   throw new Error(data.error || "Failed to generate assessment");
-      // }
-
-      // const generated: Omit<Question, "id">[] = await res.json();
       const newPrompt = await prompt.invoke({
         text: UserPrompt,
       });
       const parser = new JsonOutputParser<Question[]>();
-      // Sequentially call model and then parser
       const modelResult = await model.invoke(newPrompt);
       const generated = await parser.invoke(modelResult);
-      console.log("reached here in generate");
-      console.log("generated: ", generated);
-      // let rawContent = generated.content;
 
       setQuestions((prev) => {
         const newQs = generated.map((gq, idx) => {
@@ -194,7 +181,7 @@ export default function AssessmentBuilder() {
               gq.type === "single-choice" || gq.type === "multi-choice"
                 ? gq.options && gq.options.length > 0
                   ? gq.options
-                  : ["Option 1"] // fallback like addQuestion
+                  : ["Option 1"]
                 : undefined,
             validation: gq.validation || { required: false },
           } as Question;
@@ -538,6 +525,14 @@ export default function AssessmentBuilder() {
                                 </Button>
                               </div>
                             )}
+                            {question.type === "file-upload" && (
+                              <div className="space-y-2 pt-2 border-t">
+                                <Label className="font-medium">File Upload</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input type="file" />
+                                </div>
+                              </div>
+                            )}
                             <div className="space-y-3 pt-3 border-t">
                               <Label className="font-medium">Constraints</Label>
                               <div className="flex items-center space-x-2">
@@ -559,6 +554,59 @@ export default function AssessmentBuilder() {
                                   Required
                                 </Label>
                               </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`cond-${question.id}`}
+                                  checked={!!question.condition}
+                                  onCheckedChange={(c) =>
+                                    updateQuestion(question.id, {
+                                      condition: c
+                                        ? { questionId: "", value: "" }
+                                        : undefined,
+                                    })
+                                  }
+                                />
+                                <Label htmlFor={`cond-${question.id}`}>
+                                  Conditional
+                                </Label>
+                              </div>
+                              {question.condition && (
+                                <div className="space-y-2 pl-6">
+                                  <select
+                                    value={question.condition.questionId}
+                                    onChange={(e) =>
+                                      updateQuestion(question.id, {
+                                        condition: {
+                                          ...question.condition,
+                                          questionId: e.target.value,
+                                        },
+                                      })
+                                    }
+                                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
+                                  >
+                                    <option value="">Select a question</option>
+                                    {questions
+                                      .filter((q) => q.id !== question.id)
+                                      .map((q) => (
+                                        <option key={q.id} value={q.id}>
+                                          {q.text}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <Input
+                                    value={question.condition.value}
+                                    onChange={(e) =>
+                                      updateQuestion(question.id, {
+                                        condition: {
+                                          ...question.condition,
+                                          value: e.target.value,
+                                        },
+                                      })
+                                    }
+                                    placeholder="Value to match"
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
