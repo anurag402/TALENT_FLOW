@@ -2,7 +2,7 @@
 
 Talent Flow is a mini hiring platform designed to streamline the recruitment process. It provides a comprehensive solution for managing job postings, tracking candidates, and conducting assessments.
 
-####  Deploy link: https://talent-flow-one-azure.vercel.app/dashboard
+####  [live demo](https://talent-flow-1xyb7gykb-anurag402s-projects.vercel.app)
 
 ## Features
 
