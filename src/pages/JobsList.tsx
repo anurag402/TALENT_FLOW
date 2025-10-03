@@ -14,6 +14,8 @@ import {
   Users,
   Calendar,
   Filter,
+  SortAsc,
+  SortDesc,
   X,
   TrendingUp,
   ChevronLeft,
@@ -48,6 +50,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import gsap from "gsap";
 import JobKanban from "@/components/JobKanban";
+
+// import { useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
 
 export default function Jobs() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -186,6 +190,8 @@ export default function Jobs() {
 
     if (activeId === overId) return;
 
+    let isProcessing = false;
+
     if (overId === "active-placeholder" || overId === "archived-placeholder") {
       const newStatus = overId === "active-placeholder" ? "active" : "archived";
       const activeJob = jobs.find((j) => j.id === activeId);
@@ -206,29 +212,52 @@ export default function Jobs() {
     } else {
       // Reordering within a column
       setJobs((previousJobs) => {
+        if (isProcessing) return previousJobs; // Prevent duplicate processing
+        isProcessing = true;
+
         const oldIndex = previousJobs.findIndex((j) => j.id === activeId);
         const newIndex = previousJobs.findIndex((j) => j.id === overId);
-        if (oldIndex === -1 || newIndex === -1) return previousJobs; // Should not happen
+        if (oldIndex === -1 || newIndex === -1) {
+          isProcessing = false;
+          return previousJobs;
+        }
 
         const reorderedJobs = arrayMove(previousJobs, oldIndex, newIndex);
+        const updatedJobs = reorderedJobs.map((job, index) => ({
+          ...job,
+          orderId: index,
+        }));
 
         (async () => {
+          if (viewMode !== "list") {
+            isProcessing = false;
+            return;
+          }
+
+          const pageSize = 10;
+          const fromOrder = (currentPage - 1) * pageSize + oldIndex;
+          const toOrder = (currentPage - 1) * pageSize + newIndex;
+          console.log("from: ", fromOrder, " to: ", toOrder);
+
           try {
-            await axios.patch(`http://backend/jobs/reorder`, {
-              jobs: reorderedJobs.map(({ id }, index) => ({
-                id,
-                orderId: index,
-              })),
+            await axios.patch(`http://backend/jobs/${activeId}/reorder`, {
+              fromOrder,
+              toOrder,
             });
           } catch (error) {
             setJobs(previousJobs); // Revert on error
+          } finally {
+            isProcessing = false; // Reset flag after request completes
           }
         })();
 
-        return reorderedJobs;
+        return updatedJobs;
       });
     }
   };
+
+  //   return reorderedJobs;
+  // });
 
   const currentJobs = useMemo(() => {
     let jobsToShow = jobs;
@@ -572,6 +601,8 @@ function SortableJobItem({
   } = useSortable({ id: job.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const navigate = useNavigate();
+
+  // const navigate = useNavigate();
 
   return (
     <motion.div

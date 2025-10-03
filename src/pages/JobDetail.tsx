@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { type JOB } from "../../types";
 
-export default function JobDetail() {
+export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const [job, setJob] = useState<JOB | null>(null);
   const [loading, setLoading] = useState(false);
@@ -13,10 +13,23 @@ export default function JobDetail() {
     const fetchJob = async () => {
       setLoading(true);
       try {
-        const { data } = await axios.get(`http://backend/jobs/${jobId}`);
-        setJob(data);
+        //all jobs
+        const { data } = await axios.get("http://backend/jobs", {
+          params: {
+            page: 1,
+            pageSize: 1000, //Large to fetch all jobs
+          },
+        });
+
+        const foundJob = data.jobs.find((j: JOB) => j.id === jobId);
+        if (foundJob) {
+          setJob(foundJob);
+        } else {
+          setError("Job not found");
+        }
       } catch (e) {
-        setError("Failed to fetch job details");
+        console.log(e);
+        setError(`Failed to fetch job details: ${e}`);
       } finally {
         setLoading(false);
       }
@@ -27,7 +40,8 @@ export default function JobDetail() {
     }
   }, [jobId]);
 
-  if (loading) return <div className="p-8 text-center">Loading job details...</div>;
+  if (loading)
+    return <div className="p-8 text-center">Loading job details...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
   if (!job) return <div className="p-8 text-center">Job not found</div>;
 
@@ -73,10 +87,10 @@ export default function JobDetail() {
           ))}
         </div>
       </div>
-      <div className="prose max-w-none">
-        <h2 className="text-2xl font-bold mb-4">Job Description</h2>
-        {/* <p>{job.description}</p> */}
-      </div>
+      {/* <div className="prose max-w-none"> */}
+      {/* <h2 className="text-2xl font-bold mb-4">Job Description</h2> */}
+      {/* <p>{job.description}</p> */}
+      {/* </div> */}
     </div>
   );
 }
