@@ -86,6 +86,10 @@ export default function JobDetailPage() {
               ))}
             </div>
           </div>
+          {/* <div className="prose max-w-none">
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">Job Description</h2>
+            <p className="text-gray-600">{job.description}</p>
+          </div> */}
         </div>
       </div>
     </div>

@@ -122,7 +122,6 @@ export default function Jobs() {
       };
       const { data } = await axios.get("http://backend/jobs", { params });
       setJobs(data.jobs as JOB[]);
-      console.log("jobs set: ", jobs.length);
       setTotalPages(data.totalPages);
     } catch {
       // noop
@@ -181,83 +180,130 @@ export default function Jobs() {
     }
   };
 
+  // —————————————————————————————————————————————————————————————
+  // Persist order within a status group (minimal server contract)
+  // If your backend supports a bulk reorder endpoint, swap it in here.
+  async function persistOrder(
+    status: "active" | "archived",
+    orderedJobs: JOB[]
+  ) {
+    // BULK EXAMPLE (if supported):
+    // await axios.patch("http://backend/jobs/reorder", {
+    //   status,
+    //   orderedIds: orderedJobs.map(j => j.id),
+    // });
+
+    // Fallback: update each job's orderId (and keep status unchanged)
+    await Promise.all(
+      orderedJobs.map((job, idx) =>
+        axios.patch(`http://backend/jobs/${job.id}`, {
+          orderId: idx,
+          status, // ensure server keeps job in same column
+        })
+      )
+    );
+  }
+  // —————————————————————————————————————————————————————————————
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
 
-    const activeId = active.id;
-    const overId = over.id;
-
+    const activeId = String(active.id);
+    const overId = String(over.id);
     if (activeId === overId) return;
-
-    let isProcessing = false;
-
-    if (overId === "active-placeholder" || overId === "archived-placeholder") {
-      const newStatus = overId === "active-placeholder" ? "active" : "archived";
-      const activeJob = jobs.find((j) => j.id === activeId);
-      if (activeJob && activeJob.status !== newStatus) {
-        handleMoveToColumn(activeId as string, newStatus);
-      }
-      return;
-    }
 
     const activeJob = jobs.find((j) => j.id === activeId);
     const overJob = jobs.find((j) => j.id === overId);
 
+    // In list view: ONLY reorder within same status. Do not change status.
+    if (viewMode === "list") {
+      if (!activeJob || !overJob) return;
+
+      // If user drops onto a job with a different status, ignore (snap back)
+      if (activeJob.status !== overJob.status) return;
+
+      // Reorder within this status group, independent of pagination
+      setJobs((prev) => {
+        const group = prev
+          .filter((j) => j.status === activeJob.status)
+          .sort((a, b) => a.orderId - b.orderId);
+
+        const oldIndex = group.findIndex((j) => j.id === activeId);
+        const newIndex = group.findIndex((j) => j.id === overId);
+        if (oldIndex < 0 || newIndex < 0) return prev;
+
+        const reorderedGroup = arrayMove(group, oldIndex, newIndex);
+        const orderMap = new Map<string, number>();
+        reorderedGroup.forEach((j, idx) => orderMap.set(j.id, idx));
+
+        const next = prev.map((j) =>
+          j.status === activeJob.status
+            ? { ...j, orderId: orderMap.get(j.id)! }
+            : j
+        );
+
+        // Persist (no UI changes)
+        persistOrder(
+          activeJob.status as "active" | "archived",
+          reorderedGroup
+        ).catch(() => {
+          // Optional: refetch to recover
+          // fetchJobs(currentPage);
+        });
+
+        return next;
+      });
+
+      return;
+    }
+
+    // Kanban view: allow status changes using column placeholders
+    if (overId === "active-placeholder" || overId === "archived-placeholder") {
+      const targetStatus =
+        overId === "active-placeholder" ? "active" : "archived";
+      if (activeJob && activeJob.status !== targetStatus) {
+        await handleMoveToColumn(activeId, targetStatus);
+      }
+      return;
+    }
+
+    // Kanban view: same-column reorder or cross-card drop
     if (!activeJob || !overJob) return;
 
-    if (activeJob.status !== overJob.status) {
-      // Moving between columns
-      handleMoveToColumn(activeId as string, overJob.status);
-    } else {
-      // Reordering within a column
-      setJobs((previousJobs) => {
-        if (isProcessing) return previousJobs; // Prevent duplicate processing
-        isProcessing = true;
+    if (activeJob.status === overJob.status) {
+      // same column reorder
+      setJobs((prev) => {
+        const group = prev
+          .filter((j) => j.status === activeJob.status)
+          .sort((a, b) => a.orderId - b.orderId);
 
-        const oldIndex = previousJobs.findIndex((j) => j.id === activeId);
-        const newIndex = previousJobs.findIndex((j) => j.id === overId);
-        if (oldIndex === -1 || newIndex === -1) {
-          isProcessing = false;
-          return previousJobs;
-        }
+        const oldIndex = group.findIndex((j) => j.id === activeId);
+        const newIndex = group.findIndex((j) => j.id === overId);
+        if (oldIndex < 0 || newIndex < 0) return prev;
 
-        const reorderedJobs = arrayMove(previousJobs, oldIndex, newIndex);
-        const updatedJobs = reorderedJobs.map((job, index) => ({
-          ...job,
-          orderId: index,
-        }));
+        const reorderedGroup = arrayMove(group, oldIndex, newIndex);
+        const orderMap = new Map<string, number>();
+        reorderedGroup.forEach((j, idx) => orderMap.set(j.id, idx));
 
-        (async () => {
-          if (viewMode !== "list") {
-            isProcessing = false;
-            return;
-          }
+        const next = prev.map((j) =>
+          j.status === activeJob.status
+            ? { ...j, orderId: orderMap.get(j.id)! }
+            : j
+        );
 
-          const pageSize = 10;
-          const fromOrder = (currentPage - 1) * pageSize + oldIndex;
-          const toOrder = (currentPage - 1) * pageSize + newIndex;
-          console.log("from: ", fromOrder, " to: ", toOrder);
+        persistOrder(
+          activeJob.status as "active" | "archived",
+          reorderedGroup
+        ).catch(() => {});
 
-          try {
-            await axios.patch(`http://backend/jobs/${activeId}/reorder`, {
-              fromOrder,
-              toOrder,
-            });
-          } catch (error) {
-            setJobs(previousJobs); // Revert on error
-          } finally {
-            isProcessing = false; // Reset flag after request completes
-          }
-        })();
-
-        return updatedJobs;
+        return next;
       });
+    } else {
+      // Cross-column drop onto a specific card in Kanban => change status
+      await handleMoveToColumn(activeId, overJob.status);
     }
   };
-
-  //   return reorderedJobs;
-  // });
 
   const currentJobs = useMemo(() => {
     let jobsToShow = jobs;
@@ -601,8 +647,6 @@ function SortableJobItem({
   } = useSortable({ id: job.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const navigate = useNavigate();
-
-  // const navigate = useNavigate();
 
   return (
     <motion.div

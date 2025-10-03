@@ -19,6 +19,7 @@ import Layout from './components/layout';
 import { Toaster } from "react-hot-toast"
 import { useEffect,useState } from 'react'
 import LoadingScreen from './pages/LoadingScreen';
+import HomePage from './pages/Home';
 
 // createMjsServer();
 
@@ -35,7 +36,7 @@ if (!mirageReady) return <LoadingScreen />;
       <Toaster position="top-right" reverseOrder={false} />
 
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<Layout />}>
           {/* Dashboard */}
