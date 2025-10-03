@@ -161,33 +161,30 @@ export default function JobForm() {
   };
 
   return (
-    <div
-      className="min-h-screen p-8"
-      style={{ background: "var(--gradient-subtle)", color: "var(--foreground)" }}
-    >
+    <div className="min-h-screen p-8 bg-gradient-to-br from-[#3B82F6] via-[#14B8A6] to-[#F9FAFB]">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Link to="/jobs">
-            <Button variant="ghost" className="gap-2">
+            <Button variant="ghost" className="gap-2 text-white/80 hover:text-white">
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
           </Link>
           <div>
-            <h1 className="text-4xl font-bold" style={{ color: "var(--foreground)" }}>{isEdit ? "Edit Job" : "Create New Job"}</h1>
-            <p className="mt-1" style={{ color: "var(--muted-foreground)" }}>{isEdit ? "Update the job details" : "Add a new position to your hiring pipeline"}</p>
+            <h1 className="text-4xl font-bold text-white">{isEdit ? "Edit Job" : "Create New Job"}</h1>
+            <p className="mt-1 text-white/80">{isEdit ? "Update the job details" : "Add a new position to your hiring pipeline"}</p>
           </div>
         </div>
 
-        <Card className="shadow-lg" style={{ borderColor: "var(--border)", borderWidth: 1, background: "var(--card)", color: "var(--card-foreground)" }}>
+        <Card className="shadow-lg bg-white/80 backdrop-blur-sm border-0">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg" style={{ background: "var(--gradient-primary)" }}>
-                <Briefcase className="h-6 w-6" style={{ color: "var(--primary-foreground)" }} />
+              <div className="p-3 rounded-lg bg-gradient-to-r from-[#3B82F6] to-[#14B8A6]">
+                <Briefcase className="h-6 w-6 text-white" />
               </div>
               <div>
-                <CardTitle style={{ color: "var(--foreground)" }}>Job Details</CardTitle>
-                <CardDescription style={{ color: "var(--muted-foreground)" }}>{isEdit ? "Edit the information for this position" : "Fill in the information for this position"}</CardDescription>
+                <CardTitle className="text-gray-800">Job Details</CardTitle>
+                <CardDescription className="text-gray-500">{isEdit ? "Edit the information for this position" : "Fill in the information for this position"}</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -303,9 +300,9 @@ export default function JobForm() {
                 {formData.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {formData.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="gap-2 pr-1" style={{ background: "var(--secondary)", color: "var(--secondary-foreground)" }}>
+                      <Badge key={tag} variant="secondary" className="gap-2 pr-1 bg-[#3B82F6]/10 text-[#3B82F6]">
                         {tag}
-                        <button type="button" onClick={() => removeTag(tag)} className="rounded-full p-0.5 transition-colors" style={{ background: "transparent" }}>
+                        <button type="button" onClick={() => removeTag(tag)} className="rounded-full p-0.5 transition-colors">
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
@@ -314,9 +311,9 @@ export default function JobForm() {
                 )}
               </div>
 
-              <div className="flex gap-3 pt-6 border-t" style={{ borderColor: "var(--border)" }}>
-                <Button type="button" className="flex-1 shadow-primary" style={{ background: "var(--gradient-primary)", color: "var(--primary-foreground)" }} onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save changes" : "Create Job")}</Button>
-                <Button type="button" variant="outline" onClick={() => navigate("/jobs")} className="flex-1" style={{ background: "var(--card)", color: "var(--card-foreground)" }}>Cancel</Button>
+              <div className="flex gap-3 pt-6 border-t border-gray-200">
+                <Button type="button" className="flex-1 bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save changes" : "Create Job")}</Button>
+                <Button type="button" variant="outline" onClick={() => navigate("/jobs")} className="flex-1">Cancel</Button>
               </div>
             </form>
           </CardContent>
